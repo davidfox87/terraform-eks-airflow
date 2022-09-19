@@ -121,3 +121,8 @@ kind delete cluster --name airflow-cluster
 
 # Deployment of Airflow on AWS EKS using Terraform
 blah
+
+# CI/CD with Jenkins and ArgoCD (GitOps)
+## Deploy ArgoCD in Kubernetes cluster to watch for configuration changes in a github repo 
+This will be the intended workflow for Jenkins Continuous Integration/Continuous Deployment and Argo CD for continuous Delivery
+![MLOps workflow orchestration](gitops-argocd.png)
