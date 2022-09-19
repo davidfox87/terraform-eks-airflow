@@ -90,3 +90,8 @@ helm upgrade --install airflow apache-airflow/airflow -n airflow -f values.yaml 
    ```
    kubectl logs airflow-scheduler-8f5d64678-lr2h9 -c git-sync-init  -n airflow
    ```
+
+# delete local Kind cluster
+```
+kind delete cluster --name airflow-cluster
+```
