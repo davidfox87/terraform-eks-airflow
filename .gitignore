@@ -36,3 +36,5 @@ override.tf.json
 *.lock.hcl
 
 kubeconfig.yaml
+
+rsa
