@@ -42,7 +42,7 @@ kubectl get nodes -o wide
 ```
 
 # customizing our instance of airflow by modifying values.yaml
-1. helm show values apache-airflow/airflow > values.yaml
+1. Export values: ```helm show values apache-airflow/airflow > values.yaml```
 2. create ConfigMap in variables.yaml
 ```
     apiVersion: v1
