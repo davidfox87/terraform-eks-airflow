@@ -1,114 +1,101 @@
+# Local deployment of airflow on Kind K8s cluster
+kind create cluster --name airflow-cluster --config kind-cluster.yaml 
+kubectl cluster-info --context kind-airflow-cluster
+kubectl get nodes -o wide
 
+deploy airflow
 
+1. create namespace
+    kubectl create namespace airflow
+2. list namespaces
+    kubectl get ns
+3. fetch airflow via helm and get the latest version of the airflow chart
+    helm repo add apache-airflow https://airflow.apache.org
+    helm repo update
+    helm search repo airflow
 
-# Installing a local deployment of Kubeflow on a local Kubernetes cluster
-https://www.kubeflow.org/docs/components/pipelines/installation/localcluster-deployment/
+4. deploy
+    helm install airflow apache-airflow/airflow --namespace airflow --debug --timeout 10m0s
+    helm ls -n airflow
+5. get all the pods deployed by airflow
+     kubectl get po -n airflow
 
-create Kind k8s cluster
+6. Check the logs of one of the pods
+    kubectl logs airflow-scheduler-5c648c489d-2xvlr -n airflow -c scheduler
 
+7. Take a look at the UI by setting up a port forward to the UI
+    kubectl port-forward svc/airflow-webserver 8080:8080 -n airflow
 
-# Installing Kubeflow on AWS
-## Prerequisites
-- Kubernetes EKS AWS
-- Kustomize  (version 3.2.0)
-- kubectl
-
-# Clone repositories
+# customizing our instance of airflow by modifying values.yaml
+1. helm show values apache-airflow/airflow > values.yaml
+2. create ConfigMap in variables.yaml
 ```
-export KUBEFLOW_RELEASE_VERSION=v1.5.1
-export AWS_RELEASE_VERSION=v1.5.1-aws-b1.0.1
-```
-Run the script to clone and set the release version
-```
-./install.sh
-```
+    apiVersion: v1
+kind: ConfigMap
+metadata:
+  namespace: airflow
+  name: airflow-variables
+data:
+  AIRFLOW_VAR_MY_S3_BUCKET: "my_s3_name"
+  ```
 
-Install Kustomize by downloading precompiled binaries
+3. values.yaml add 
 ```
-wget https://github.com/kubernetes-sigs/kustomize/releases/download/v3.2.0/kustomize_3.2.0_linux_amd64
-mv kustomize_3.2.0_linux_amd64 kustomize
-mv kustomize /usr/local/bin
-```
-
-
-
-## install with a single command
-You can install all Kubeflow official components by running the following command in the infra/kubeflow_install/kubeflow_manifests folder:
-
-```
-while ! kustomize build deployments/vanilla | kubectl apply -f -; do echo "Retrying to apply resources"; sleep 30; done
-
-```
-
-# Port-Forward
-To get started quickly, you can access Kubeflow via port-forward. Run the following to port-forward Istio’s Ingress-Gateway to local port 8080:
-```
-kubectl port-forward svc/istio-ingressgateway -n istio-system 8080:80
-```
-
-
-# Access Kubeflow Pipelines from Jupyter notebook
-
-In order to access Kubeflow Pipelines from Jupyter notebook, an additional per namespace (profile) manifest is required:
-```
-kubectl apply -f kfp-access.yaml 
+extraEnvFrom: |
+  - configMapRef:
+    name: 'airflow-variables'
 ```
 
-# Configuring a notebook
-https://www.kubeflow.org/docs/components/notebooks/quickstart-guide/#create-a-jupyter-notebook-server-and-add-a-notebook
-
-# kubernetes commands
-https://kubernetes.io/docs/reference/kubectl/cheatsheet/
-
-
-# Get commands with basic output
+4. Upload ConifgMap to cluster
 ```
-kubectl get services                          # List all services in the namespace
-kubectl get pods --all-namespaces             # List all pods in all namespaces
-kubectl get pods -o wide                      # List all pods in the current namespace, with more details
-kubectl get deployment my-dep                 # List a particular deployment
-kubectl get pods                              # List all pods in the namespace
-kubectl get pod my-pod -o yaml                # Get a pod's YAML
-
-# Describe commands with verbose output
-kubectl describe nodes my-node
-kubectl describe pods my-pod
-
-# list current namespaces in the cluster
-kubectl get namespace
-kubectl get namespaces --show-labels
+kubectl apply -f variables.yaml
 ```
 
+5. helm upgrade --install airflow apache-airflow/airflow -n airflow -f values.yaml --debug
+6. helm ls -n airflow
+
+# verify that the ConfigMap was successful
+1. kubectl get po -n airflow
+2. kubectl exec --stdin --tty airflow-webserver-67ddff448c-h2kkg -n airflow -- /bin/bash
+3. python
+4. from airflow.models import Variable
+5. Variable.get("my_s3_bucket")
 
 
-# Adding secrets to a namespace in the cluster
-echo -n 'admin' | base64
-echo -n '1f2d1e2e67df' | base64
 
-create the manifest
-
-kubectl apply -f ./secret.yaml
-
-check that the secret was created:
-``` 
-kubectl get secrets 
-kubectl get secrets mysecret -n ${NAMESPACE} -o jsonpath='{.data.password} | base64 --decode
+# fetch dags from private github repo
+1. ssh-keygen -t rsa -f rsa -b 4096 -m PEM
+2. go to github repo -> settings -> deploy-keys -> add new 
+3. paste in rsa.pub SSH public key
+4. Configure gitsync section in values.yaml
+5. Store the github ssh private key as a secret
+6. create the secret
+```
+kubectl create secret generic airflow-ssh-git-secret \
+    --from-file=gitSsKey=/home/david/terraform-eks-airflow/local/.ssh/rsa \
+    -n airflow
+kubectl get secrets -n airflow
 ```
 
-kubectl describe secrets/mysecret
+If that doesn't work, then do kubectl apply -f ssh-git-secret.yaml
 
-# Decoding the secret
-To view the contents of the Secret you created, run the following command:
+7. Upgrade with new config
+```
+helm upgrade --install airflow apache-airflow/airflow -n airflow -f values.yaml --debug
+```
 
-```kubectl get secret mysecret -o jsonpath='{.data}'```
+8.  kubectl get po -n airflow -o wide
 
-decode the password using:
-```echo 'MWYyZDFlMmU2N2Rm' | base64 --decode```
+9. If some issue causes error and crashloopbackoff, probably an issue with the private SSH key. Check
+   the logs of the container 
+   ```
+   kubectl logs airflow-scheduler-8f5d64678-lr2h9 -c git-sync-init  -n airflow
+   ```
 
-or 
+# delete local Kind cluster
+```
+kind delete cluster --name airflow-cluster
+```
 
-```kubectl get secret mysecret -o jsonpath='{.data.password}' | base64 --decode```
-
-## clean up
-``` kubectl delete secret mysecret ```
-
+# Deployment of Airflow on AWS EKS using Terraform
+blah
