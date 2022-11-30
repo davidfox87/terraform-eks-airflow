@@ -1,8 +1,8 @@
-# Installing an AWS EKS cluster and an autoscaling Node group
+# Installing an AWS EKS cluster
 
 
 - EKS Cluster: AWS managed Kubernetes cluster of master servers
-- EKS Node Group and optionally update an Auto Scaling Group of Kubernetes worker nodes compatible with EKS.
+- EKS Node Group
 - Associated VPC, Internet Gateway, Security Groups, and Subnets: Operator managed networking resources for the EKS Cluster and worker node instances
 - Associated IAM Roles and Policies: Operator managed access resources for EKS and worker node instances
 
